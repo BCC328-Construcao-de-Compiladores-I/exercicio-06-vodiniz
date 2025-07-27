@@ -5,6 +5,7 @@ import L.L2.Frontend.TypeCheck
 import L.L2.Interpreter.Interp
 import Utils.Pretty
 
+import L.L2.Backend.CCodegen (cL2Codegen)
 import L.L2.Backend.V1Codegen (v1Codegen)
 import L.L2.Frontend.TypeCheck (typeCheck)
 import System.Environment
@@ -222,7 +223,63 @@ v1Compiler file = do
 -- Implement the whole executable compiler, using C source and GCC.
 
 cCompiler :: FilePath -> IO ()
-cCompiler file = error "Not implemented!"
+cCompiler file = do
+  content <- readFile file
+  result <- l2Parser content
+  case result of
+    Left perr -> print ("Parse error: " ++ perr)
+    Right ast -> do
+      let result = typeCheck ast
+      case result of
+        Left terr -> print ("Type error: " ++ terr)
+        Right ast' -> do
+          let code = cL2Codegen ast'
+          let cfile = replaceExtension file ".c"
+          let exeFile = dropExtension file
+          writeFile cfile code
+          print ("Generated c source code to :" ++ cfile)
+          callProcess
+            "gcc"
+            [ cfile
+            , "-o"
+            , exeFile
+            ]
+
+--   content <- readFile file
+--
+--   -- 1) Parse
+--   case l2Parser content of
+--     Left perr ->
+--       print ("Parse error: " ++ perr)
+--     Right ast ->
+--       -- 2) Type-check
+--       case typeCheck ast of
+--         Left terr ->
+--           print ("Type error: " ++ terr)
+--         Right checkedAst -> do
+--           -- 3) Gerar C
+--           let cSrc = cL2Codegen checkedAst
+--               cFile = replaceExtension file ".c"
+--               exeFile = dropExtension file
+--
+--           -- 4) Gravar .c
+--           writeFile cFile cSrc
+--
+--           -- 5) Invocar GCC
+--           --    -std=c99, otimização de release, saída em exeFile
+--           callProcess
+--             "gcc"
+--             [ "-std=c99"
+--             , "-O2"
+--             , "-o"
+--             , exeFile
+--             , cFile
+--             ]
+--
+--           -- 6) Feedback
+--           print ("Generated executable: " ++ exeFile)
+--
+-- -- cCompiler file = error "Not implemented!"
 
 -- help message
 
